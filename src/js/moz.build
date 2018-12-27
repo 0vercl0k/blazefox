@@ -1,0 +1,785 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+include('js-config.mozbuild')
+include('js-cxxflags.mozbuild')
+
+# Directory metadata
+component_engine = ('Core', 'JavaScript Engine')
+component_gc     = ('Core', 'JavaScript: GC')
+component_intl   = ('Core', 'JavaScript: Internationalization API')
+component_jit    = ('Core', 'JavaScript Engine: JIT')
+component_stl    = ('Core', 'JavaScript: Standard Library')
+component_wasm   = ('Core', 'Javascript: Web Assembly')
+
+FILES_PER_UNIFIED_FILE = 6
+
+with Files('*'):
+    BUG_COMPONENT = component_engine
+
+with Files('wasm/**'):
+    BUG_COMPONENT = component_wasm
+with Files('builtin/**'):
+    BUG_COMPONENT = component_stl
+with Files('ctypes/**'):
+    BUG_COMPONENT = ('Core', 'js-ctypes')
+with Files('gc/**'):
+    BUG_COMPONENT = component_gc
+with Files('jit/**'):
+    BUG_COMPONENT = component_jit
+
+# File-specific metadata
+for gcfile in ['devtools/rootAnalysis', 'devtools/gc-ubench', 'devtools/gctrace']:
+    with Files(gcfile):
+        BUG_COMPONENT = component_gc
+
+for stlfile in ['jsdate.*', 'jsnum.*']:
+    with Files(stlfile):
+        BUG_COMPONENT = component_stl
+
+with Files('builtin/intl/*'):
+    BUG_COMPONENT = component_intl
+
+if CONFIG['JS_BUNDLED_EDITLINE']:
+    DIRS += ['editline']
+
+if not CONFIG['JS_DISABLE_SHELL']:
+    DIRS += ['shell']
+
+TEST_DIRS += ['jsapi-tests', 'tests', 'gdb']
+
+if CONFIG['FUZZING_INTERFACES']:
+    TEST_DIRS += [
+        'fuzz-tests',
+    ]
+
+if CONFIG['FUZZING_INTERFACES'] and CONFIG['LIBFUZZER']:
+    # In addition to regular coverage provided by trace-pc-guard,
+    # LibFuzzer can use trace-cmp to instrument various compare instructions.
+    # Only use this feature on source files that do a lot of constant
+    # comparisons that would otherwise be hard to guess by LibFuzzer,
+    # as it comes with a larger overhead (requires -use_value_profile=1).
+    include('/tools/fuzzing/libfuzzer-flags.mozbuild')
+
+    # Any files that are targeted by LibFuzzer should be added here so they can
+    # be built with the necessary instrumentation flags, rather than just building
+    # the whole JS engine with instrumentation, to reduce the amount of noise.
+    SOURCES += [
+        'vm/StructuredClone.cpp',
+    ]
+    SOURCES['vm/StructuredClone.cpp'].flags += libfuzzer_flags
+else:
+    UNIFIED_SOURCES += [
+        'vm/StructuredClone.cpp',
+    ]
+
+CONFIGURE_SUBST_FILES += [
+    'devtools/rootAnalysis/Makefile',
+]
+CONFIGURE_DEFINE_FILES += [
+    'js-confdefs.h',
+]
+
+if not CONFIG['JS_STANDALONE']:
+    CONFIGURE_SUBST_FILES += [
+        '../../config/autoconf-js.mk',
+        '../../config/emptyvars-js.mk',
+    ]
+
+CONFIGURE_DEFINE_FILES += [
+    'js-config.h',
+]
+
+if CONFIG['HAVE_DTRACE']:
+    GENERATED_FILES += ['javascript-trace.h']
+
+    EXPORTS += ['!javascript-trace.h']
+
+# Generate jit/MOpcodes.h from jit/MIR.h
+GENERATED_FILES += ['jit/MOpcodes.h']
+MOpcodesGenerated = GENERATED_FILES['jit/MOpcodes.h']
+MOpcodesGenerated.script = 'jit/GenerateOpcodeFiles.py:generate_mir_header'
+MOpcodesGenerated.inputs = ['jit/MIR.h']
+
+# Generate jit/LOpcodes.h from jit/LIR.h, jit/shared/LIR-shared.h, and
+# platform-specific LIR files.
+GENERATED_FILES += ['jit/LOpcodes.h']
+LOpcodesGenerated = GENERATED_FILES['jit/LOpcodes.h']
+LOpcodesGenerated.script = 'jit/GenerateOpcodeFiles.py:generate_lir_header'
+LOpcodesGenerated.inputs = ['jit/LIR.h', 'jit/shared/LIR-shared.h']
+
+# Changes to internal header files, used externally, massively slow down
+# browser builds.  Don't add new files here unless you know what you're
+# doing!
+EXPORTS += [
+    '!js-config.h',
+    'js.msg',
+    'jsapi.h',
+    'jsfriendapi.h',
+    'jspubtd.h',
+    'jstypes.h',
+    'perf/jsperf.h',
+]
+
+EXPORTS.js += [
+    '../public/AllocPolicy.h',
+    '../public/CallArgs.h',
+    '../public/CallNonGenericMethod.h',
+    '../public/CharacterEncoding.h',
+    '../public/Class.h',
+    '../public/CompilationAndEvaluation.h',
+    '../public/CompileOptions.h',
+    '../public/Conversions.h',
+    '../public/Date.h',
+    '../public/Debug.h',
+    '../public/ErrorReport.h',
+    '../public/GCAnnotations.h',
+    '../public/GCAPI.h',
+    '../public/GCHashTable.h',
+    '../public/GCPolicyAPI.h',
+    '../public/GCVariant.h',
+    '../public/GCVector.h',
+    '../public/HashTable.h',
+    '../public/HeapAPI.h',
+    '../public/Id.h',
+    '../public/Initialization.h',
+    '../public/JSON.h',
+    '../public/LocaleSensitive.h',
+    '../public/MemoryFunctions.h',
+    '../public/MemoryMetrics.h',
+    '../public/OffThreadScriptCompilation.h',
+    '../public/Principals.h',
+    '../public/Printf.h',
+    '../public/ProfilingFrameIterator.h',
+    '../public/ProfilingStack.h',
+    '../public/ProtoKey.h',
+    '../public/Proxy.h',
+    '../public/Realm.h',
+    '../public/RefCounted.h',
+    '../public/RequiredDefines.h',
+    '../public/Result.h',
+    '../public/RootingAPI.h',
+    '../public/SavedFrameAPI.h',
+    '../public/SliceBudget.h',
+    '../public/SourceBufferHolder.h',
+    '../public/StableStringChars.h',
+    '../public/Stream.h',
+    '../public/StructuredClone.h',
+    '../public/SweepingAPI.h',
+    '../public/TraceKind.h',
+    '../public/TraceLoggerAPI.h',
+    '../public/TracingAPI.h',
+    '../public/TrackedOptimizationInfo.h',
+    '../public/Transcoding.h',
+    '../public/TypeDecls.h',
+    '../public/UbiNode.h',
+    '../public/UbiNodeBreadthFirst.h',
+    '../public/UbiNodeCensus.h',
+    '../public/UbiNodeDominatorTree.h',
+    '../public/UbiNodePostOrder.h',
+    '../public/UbiNodeShortestPaths.h',
+    '../public/UbiNodeUtils.h',
+    '../public/UniquePtr.h',
+    '../public/Utility.h',
+    '../public/Value.h',
+    '../public/Vector.h',
+    '../public/WeakMapPtr.h',
+    '../public/Wrapper.h',
+]
+
+UNIFIED_SOURCES += [
+    'builtin/Array.cpp',
+    'builtin/AtomicsObject.cpp',
+    'builtin/Boolean.cpp',
+    'builtin/DataViewObject.cpp',
+    'builtin/Eval.cpp',
+    'builtin/intl/Collator.cpp',
+    'builtin/intl/CommonFunctions.cpp',
+    'builtin/intl/DateTimeFormat.cpp',
+    'builtin/intl/IntlObject.cpp',
+    'builtin/intl/NumberFormat.cpp',
+    'builtin/intl/PluralRules.cpp',
+    'builtin/intl/RelativeTimeFormat.cpp',
+    'builtin/intl/SharedIntlData.cpp',
+    'builtin/JSON.cpp',
+    'builtin/MapObject.cpp',
+    'builtin/ModuleObject.cpp',
+    'builtin/Object.cpp',
+    'builtin/Profilers.cpp',
+    'builtin/Promise.cpp',
+    'builtin/Reflect.cpp',
+    'builtin/ReflectParse.cpp',
+    'builtin/Stream.cpp',
+    'builtin/String.cpp',
+    'builtin/Symbol.cpp',
+    'builtin/TestingFunctions.cpp',
+    'builtin/TypedObject.cpp',
+    'builtin/WeakMapObject.cpp',
+    'builtin/WeakSetObject.cpp',
+    'devtools/sharkctl.cpp',
+    'ds/Bitmap.cpp',
+    'ds/LifoAlloc.cpp',
+    'ds/MemoryProtectionExceptionHandler.cpp',
+    'frontend/BytecodeCompiler.cpp',
+    'frontend/BytecodeControlStructures.cpp',
+    'frontend/BytecodeEmitter.cpp',
+    'frontend/CallOrNewEmitter.cpp',
+    'frontend/CForEmitter.cpp',
+    'frontend/DoWhileEmitter.cpp',
+    'frontend/ElemOpEmitter.cpp',
+    'frontend/EmitterScope.cpp',
+    'frontend/ExpressionStatementEmitter.cpp',
+    'frontend/FoldConstants.cpp',
+    'frontend/ForInEmitter.cpp',
+    'frontend/ForOfEmitter.cpp',
+    'frontend/ForOfLoopControl.cpp',
+    'frontend/IfEmitter.cpp',
+    'frontend/JumpList.cpp',
+    'frontend/NameFunctions.cpp',
+    'frontend/NameOpEmitter.cpp',
+    'frontend/ParseNode.cpp',
+    'frontend/PropOpEmitter.cpp',
+    'frontend/SwitchEmitter.cpp',
+    'frontend/TDZCheckCache.cpp',
+    'frontend/TokenStream.cpp',
+    'frontend/TryEmitter.cpp',
+    'frontend/WhileEmitter.cpp',
+    'gc/Allocator.cpp',
+    'gc/AtomMarking.cpp',
+    'gc/Barrier.cpp',
+    'gc/GC.cpp',
+    'gc/GCTrace.cpp',
+    'gc/Marking.cpp',
+    'gc/Memory.cpp',
+    'gc/Nursery.cpp',
+    'gc/PublicIterators.cpp',
+    'gc/RootMarking.cpp',
+    'gc/Statistics.cpp',
+    'gc/Tracer.cpp',
+    'gc/Verifier.cpp',
+    'gc/WeakMap.cpp',
+    'gc/WeakMapPtr.cpp',
+    'gc/Zone.cpp',
+    'irregexp/NativeRegExpMacroAssembler.cpp',
+    'irregexp/RegExpAST.cpp',
+    'irregexp/RegExpCharacters.cpp',
+    'irregexp/RegExpEngine.cpp',
+    'irregexp/RegExpInterpreter.cpp',
+    'irregexp/RegExpMacroAssembler.cpp',
+    'irregexp/RegExpParser.cpp',
+    'irregexp/RegExpStack.cpp',
+    'jit/AliasAnalysis.cpp',
+    'jit/AlignmentMaskAnalysis.cpp',
+    'jit/BacktrackingAllocator.cpp',
+    'jit/Bailouts.cpp',
+    'jit/BaselineBailouts.cpp',
+    'jit/BaselineCacheIRCompiler.cpp',
+    'jit/BaselineCompiler.cpp',
+    'jit/BaselineDebugModeOSR.cpp',
+    'jit/BaselineFrame.cpp',
+    'jit/BaselineFrameInfo.cpp',
+    'jit/BaselineIC.cpp',
+    'jit/BaselineInspector.cpp',
+    'jit/BaselineJIT.cpp',
+    'jit/BitSet.cpp',
+    'jit/BytecodeAnalysis.cpp',
+    'jit/C1Spewer.cpp',
+    'jit/CacheIR.cpp',
+    'jit/CacheIRCompiler.cpp',
+    'jit/CacheIRSpewer.cpp',
+    'jit/CodeGenerator.cpp',
+    'jit/CompileWrappers.cpp',
+    'jit/EdgeCaseAnalysis.cpp',
+    'jit/EffectiveAddressAnalysis.cpp',
+    'jit/ExecutableAllocator.cpp',
+    'jit/FoldLinearArithConstants.cpp',
+    'jit/InstructionReordering.cpp',
+    'jit/Ion.cpp',
+    'jit/IonAnalysis.cpp',
+    'jit/IonBuilder.cpp',
+    'jit/IonCacheIRCompiler.cpp',
+    'jit/IonControlFlow.cpp',
+    'jit/IonIC.cpp',
+    'jit/IonOptimizationLevels.cpp',
+    'jit/Jit.cpp',
+    'jit/JitcodeMap.cpp',
+    'jit/JitFrames.cpp',
+    'jit/JitOptions.cpp',
+    'jit/JitSpewer.cpp',
+    'jit/JSJitFrameIter.cpp',
+    'jit/JSONSpewer.cpp',
+    'jit/LICM.cpp',
+    'jit/Linker.cpp',
+    'jit/LIR.cpp',
+    'jit/LoopUnroller.cpp',
+    'jit/Lowering.cpp',
+    'jit/MacroAssembler.cpp',
+    'jit/MCallOptimize.cpp',
+    'jit/MIR.cpp',
+    'jit/MIRGraph.cpp',
+    'jit/MoveResolver.cpp',
+    'jit/OptimizationTracking.cpp',
+    'jit/PerfSpewer.cpp',
+    'jit/ProcessExecutableMemory.cpp',
+    'jit/RangeAnalysis.cpp',
+    'jit/Recover.cpp',
+    'jit/RegisterAllocator.cpp',
+    'jit/RematerializedFrame.cpp',
+    'jit/Safepoints.cpp',
+    'jit/ScalarReplacement.cpp',
+    'jit/shared/Assembler-shared.cpp',
+    'jit/shared/CodeGenerator-shared.cpp',
+    'jit/shared/Disassembler-shared.cpp',
+    'jit/shared/Lowering-shared.cpp',
+    'jit/Sink.cpp',
+    'jit/Snapshots.cpp',
+    'jit/StupidAllocator.cpp',
+    'jit/TypedObjectPrediction.cpp',
+    'jit/TypePolicy.cpp',
+    'jit/ValueNumbering.cpp',
+    'jit/VMFunctions.cpp',
+    'jit/WasmBCE.cpp',
+    'jsapi.cpp',
+    'jsdate.cpp',
+    'jsexn.cpp',
+    'jsfriendapi.cpp',
+    'jsnum.cpp',
+    'perf/jsperf.cpp',
+    'proxy/BaseProxyHandler.cpp',
+    'proxy/CrossCompartmentWrapper.cpp',
+    'proxy/DeadObjectProxy.cpp',
+    'proxy/OpaqueCrossCompartmentWrapper.cpp',
+    'proxy/Proxy.cpp',
+    'proxy/ScriptedProxyHandler.cpp',
+    'proxy/SecurityWrapper.cpp',
+    'proxy/Wrapper.cpp',
+    'threading/Mutex.cpp',
+    'threading/ProtectedData.cpp',
+    'util/AllocPolicy.cpp',
+    'util/CompleteFile.cpp',
+    'util/NativeStack.cpp',
+    'util/Printf.cpp',
+    'util/StringBuffer.cpp',
+    'util/Text.cpp',
+    'util/Unicode.cpp',
+    'vm/ArgumentsObject.cpp',
+    'vm/ArrayBufferObject.cpp',
+    'vm/ArrayBufferViewObject.cpp',
+    'vm/AsyncFunction.cpp',
+    'vm/AsyncIteration.cpp',
+    'vm/BytecodeUtil.cpp',
+    'vm/Caches.cpp',
+    'vm/CallNonGenericMethod.cpp',
+    'vm/CharacterEncoding.cpp',
+    'vm/CodeCoverage.cpp',
+    'vm/Compartment.cpp',
+    'vm/CompilationAndEvaluation.cpp',
+    'vm/Compression.cpp',
+    'vm/DateTime.cpp',
+    'vm/Debugger.cpp',
+    'vm/DebuggerMemory.cpp',
+    'vm/EnvironmentObject.cpp',
+    'vm/ErrorObject.cpp',
+    'vm/ErrorReporting.cpp',
+    'vm/ForOfIterator.cpp',
+    'vm/GeckoProfiler.cpp',
+    'vm/GeneratorObject.cpp',
+    'vm/GlobalObject.cpp',
+    'vm/HelperThreads.cpp',
+    'vm/Id.cpp',
+    'vm/Initialization.cpp',
+    'vm/Iteration.cpp',
+    'vm/JSAtom.cpp',
+    'vm/JSContext.cpp',
+    'vm/JSFunction.cpp',
+    'vm/JSObject.cpp',
+    'vm/JSONParser.cpp',
+    'vm/JSONPrinter.cpp',
+    'vm/JSScript.cpp',
+    'vm/MemoryMetrics.cpp',
+    'vm/NativeObject.cpp',
+    'vm/ObjectGroup.cpp',
+    'vm/OffThreadScriptCompilation.cpp',
+    'vm/PIC.cpp',
+    'vm/Printer.cpp',
+    'vm/Probes.cpp',
+    'vm/ProxyObject.cpp',
+    'vm/Realm.cpp',
+    'vm/ReceiverGuard.cpp',
+    'vm/RegExpObject.cpp',
+    'vm/RegExpStatics.cpp',
+    'vm/Runtime.cpp',
+    'vm/SavedStacks.cpp',
+    'vm/Scope.cpp',
+    'vm/SelfHosting.cpp',
+    'vm/Shape.cpp',
+    'vm/SharedArrayObject.cpp',
+    'vm/SharedImmutableStringsCache.cpp',
+    'vm/Stack.cpp',
+    'vm/Stopwatch.cpp',
+    'vm/StringType.cpp',
+    'vm/SymbolType.cpp',
+    'vm/TaggedProto.cpp',
+    'vm/Time.cpp',
+    'vm/TypedArrayObject.cpp',
+    'vm/TypeInference.cpp',
+    'vm/UbiNode.cpp',
+    'vm/UbiNodeCensus.cpp',
+    'vm/UbiNodeShortestPaths.cpp',
+    'vm/UnboxedObject.cpp',
+    'vm/Value.cpp',
+    'vm/Xdr.cpp',
+    'wasm/AsmJS.cpp',
+    'wasm/WasmBaselineCompile.cpp',
+    'wasm/WasmBuiltins.cpp',
+    'wasm/WasmCode.cpp',
+    'wasm/WasmCompile.cpp',
+    'wasm/WasmDebug.cpp',
+    'wasm/WasmFrameIter.cpp',
+    'wasm/WasmGenerator.cpp',
+    'wasm/WasmInstance.cpp',
+    'wasm/WasmIonCompile.cpp',
+    'wasm/WasmJS.cpp',
+    'wasm/WasmModule.cpp',
+    'wasm/WasmOpIter.cpp',
+    'wasm/WasmProcess.cpp',
+    'wasm/WasmRealm.cpp',
+    'wasm/WasmSignalHandlers.cpp',
+    'wasm/WasmStubs.cpp',
+    'wasm/WasmTable.cpp',
+    'wasm/WasmTextToBinary.cpp',
+    'wasm/WasmTypes.cpp',
+    'wasm/WasmValidate.cpp'
+]
+
+# builtin/RegExp.cpp cannot be built in unified mode because it causes huge
+#   win32 test slowdowns
+# frontend/Parser.cpp cannot be built in unified mode because of explicit
+#   template instantiations.
+# jsmath.cpp cannot be built in unified mode because it needs to re-#define the
+#   RtlGenRandom declaration's calling convention in <ntsecapi.h> on Windows.
+# jsutil.cpp cannot be built in unified mode because it is needed for
+#   check-vanilla-allocations.
+# StoreBuffer.cpp cannot be built in unified because its template
+#   instantiations may or may not be needed depending on what it gets bundled
+#   with.
+# perf/ProfilingStack.cpp cannot be built in unified mode because we want to
+#   suppress warnings due to usage of the system allocator, and this allows it
+#   to have a deterministic object name.
+# util/DoubleToString.cpp cannot be built in unified mode because we want to
+#   suppress compiler warnings in third-party dtoa.c.
+# vm/Interpreter.cpp is gigantic and destroys incremental build times for any
+#   files unlucky enough to be unified with it.
+SOURCES += [
+    'builtin/RegExp.cpp',
+    'frontend/Parser.cpp',
+    'gc/StoreBuffer.cpp',
+    'jsmath.cpp',
+    'jsutil.cpp',
+    'util/DoubleToString.cpp',
+    'vm/Interpreter.cpp',
+    'vm/ProfilingStack.cpp',
+]
+
+if CONFIG['ENABLE_BIGINT']:
+    SOURCES += [
+        'builtin/BigInt.cpp',
+        'vm/BigIntType.cpp',
+    ]
+
+if CONFIG['JS_POSIX_NSPR']:
+    UNIFIED_SOURCES += [
+        'vm/PosixNSPR.cpp',
+    ]
+
+if CONFIG['MOZ_INSTRUMENTS']:
+    SOURCES += [
+        'devtools/Instruments.cpp',
+    ]
+
+if CONFIG['ENABLE_TRACE_LOGGING']:
+    SOURCES += [
+        'vm/TraceLogging.cpp',
+        'vm/TraceLoggingGraph.cpp',
+        'vm/TraceLoggingTypes.cpp',
+    ]
+
+if not CONFIG['ENABLE_ION']:
+    LOpcodesGenerated.inputs += ['jit/none/LIR-none.h']
+    UNIFIED_SOURCES += [
+        'jit/none/Trampoline-none.cpp'
+    ]
+elif CONFIG['JS_CODEGEN_X86'] or CONFIG['JS_CODEGEN_X64']:
+    LOpcodesGenerated.inputs += ['jit/x86-shared/LIR-x86-shared.h']
+    UNIFIED_SOURCES += [
+        'jit/x86-shared/Architecture-x86-shared.cpp',
+        'jit/x86-shared/Assembler-x86-shared.cpp',
+        'jit/x86-shared/AssemblerBuffer-x86-shared.cpp',
+        'jit/x86-shared/CodeGenerator-x86-shared.cpp',
+        'jit/x86-shared/Lowering-x86-shared.cpp',
+        'jit/x86-shared/MacroAssembler-x86-shared-SIMD.cpp',
+        'jit/x86-shared/MacroAssembler-x86-shared.cpp',
+        'jit/x86-shared/MoveEmitter-x86-shared.cpp',
+    ]
+    if CONFIG['JS_CODEGEN_X64']:
+        LOpcodesGenerated.inputs += ['jit/x64/LIR-x64.h']
+        UNIFIED_SOURCES += [
+            'jit/x64/Assembler-x64.cpp',
+            'jit/x64/Bailouts-x64.cpp',
+            'jit/x64/CodeGenerator-x64.cpp',
+            'jit/x64/Lowering-x64.cpp',
+            'jit/x64/MacroAssembler-x64.cpp',
+            'jit/x64/Trampoline-x64.cpp',
+        ]
+    else:
+        LOpcodesGenerated.inputs += ['jit/x86/LIR-x86.h']
+        UNIFIED_SOURCES += [
+            'jit/x86/Assembler-x86.cpp',
+            'jit/x86/Bailouts-x86.cpp',
+            'jit/x86/CodeGenerator-x86.cpp',
+            'jit/x86/Lowering-x86.cpp',
+            'jit/x86/MacroAssembler-x86.cpp',
+            'jit/x86/Trampoline-x86.cpp',
+        ]
+elif CONFIG['JS_CODEGEN_ARM']:
+    LOpcodesGenerated.inputs += ['jit/arm/LIR-arm.h']
+    UNIFIED_SOURCES += [
+        'jit/arm/Architecture-arm.cpp',
+        'jit/arm/Assembler-arm.cpp',
+        'jit/arm/Bailouts-arm.cpp',
+        'jit/arm/CodeGenerator-arm.cpp',
+        'jit/arm/disasm/Constants-arm.cpp',
+        'jit/arm/disasm/Disasm-arm.cpp',
+        'jit/arm/Lowering-arm.cpp',
+        'jit/arm/MacroAssembler-arm.cpp',
+        'jit/arm/MoveEmitter-arm.cpp',
+        'jit/arm/Trampoline-arm.cpp',
+    ]
+    if CONFIG['JS_SIMULATOR_ARM']:
+        UNIFIED_SOURCES += [
+            'jit/arm/Simulator-arm.cpp'
+        ]
+    elif CONFIG['OS_ARCH'] == 'Darwin':
+        SOURCES += [
+            'jit/arm/llvm-compiler-rt/arm/aeabi_idivmod.S',
+            'jit/arm/llvm-compiler-rt/arm/aeabi_uidivmod.S',
+        ]
+elif CONFIG['JS_CODEGEN_ARM64']:
+    LOpcodesGenerated.inputs += ['jit/arm64/LIR-arm64.h']
+    UNIFIED_SOURCES += [
+        'jit/arm64/Architecture-arm64.cpp',
+        'jit/arm64/Assembler-arm64.cpp',
+        'jit/arm64/Bailouts-arm64.cpp',
+        'jit/arm64/CodeGenerator-arm64.cpp',
+        'jit/arm64/Lowering-arm64.cpp',
+        'jit/arm64/MacroAssembler-arm64.cpp',
+        'jit/arm64/MoveEmitter-arm64.cpp',
+        'jit/arm64/Trampoline-arm64.cpp',
+        'jit/arm64/vixl/Assembler-vixl.cpp',
+        'jit/arm64/vixl/Cpu-vixl.cpp',
+        'jit/arm64/vixl/Decoder-vixl.cpp',
+        'jit/arm64/vixl/Disasm-vixl.cpp',
+        'jit/arm64/vixl/Instructions-vixl.cpp',
+        'jit/arm64/vixl/Instrument-vixl.cpp',
+        'jit/arm64/vixl/MacroAssembler-vixl.cpp',
+        'jit/arm64/vixl/MozAssembler-vixl.cpp',
+        'jit/arm64/vixl/MozInstructions-vixl.cpp',
+        'jit/arm64/vixl/Utils-vixl.cpp'
+    ]
+    if CONFIG['JS_SIMULATOR_ARM64']:
+        UNIFIED_SOURCES += [
+            'jit/arm64/vixl/Debugger-vixl.cpp',
+            'jit/arm64/vixl/Logic-vixl.cpp',
+            'jit/arm64/vixl/MozSimulator-vixl.cpp',
+            'jit/arm64/vixl/Simulator-vixl.cpp'
+        ]
+elif CONFIG['JS_CODEGEN_MIPS32'] or CONFIG['JS_CODEGEN_MIPS64']:
+    LOpcodesGenerated.inputs += ['jit/mips-shared/LIR-mips-shared.h']
+    UNIFIED_SOURCES += [
+        'jit/mips-shared/Architecture-mips-shared.cpp',
+        'jit/mips-shared/Assembler-mips-shared.cpp',
+        'jit/mips-shared/Bailouts-mips-shared.cpp',
+        'jit/mips-shared/CodeGenerator-mips-shared.cpp',
+        'jit/mips-shared/Lowering-mips-shared.cpp',
+        'jit/mips-shared/MacroAssembler-mips-shared.cpp',
+        'jit/mips-shared/MoveEmitter-mips-shared.cpp',
+    ]
+    if CONFIG['JS_CODEGEN_MIPS32']:
+        LOpcodesGenerated.inputs += ['jit/mips32/LIR-mips32.h']
+        UNIFIED_SOURCES += [
+            'jit/mips32/Architecture-mips32.cpp',
+            'jit/mips32/Assembler-mips32.cpp',
+            'jit/mips32/Bailouts-mips32.cpp',
+            'jit/mips32/CodeGenerator-mips32.cpp',
+            'jit/mips32/Lowering-mips32.cpp',
+            'jit/mips32/MacroAssembler-mips32.cpp',
+            'jit/mips32/MoveEmitter-mips32.cpp',
+            'jit/mips32/Trampoline-mips32.cpp',
+        ]
+        if CONFIG['JS_SIMULATOR_MIPS32']:
+            UNIFIED_SOURCES += [
+                'jit/mips32/Simulator-mips32.cpp'
+            ]
+    elif CONFIG['JS_CODEGEN_MIPS64']:
+        LOpcodesGenerated.inputs += ['jit/mips64/LIR-mips64.h']
+        UNIFIED_SOURCES += [
+            'jit/mips64/Architecture-mips64.cpp',
+            'jit/mips64/Assembler-mips64.cpp',
+            'jit/mips64/Bailouts-mips64.cpp',
+            'jit/mips64/CodeGenerator-mips64.cpp',
+            'jit/mips64/Lowering-mips64.cpp',
+            'jit/mips64/MacroAssembler-mips64.cpp',
+            'jit/mips64/MoveEmitter-mips64.cpp',
+            'jit/mips64/Trampoline-mips64.cpp',
+        ]
+        if CONFIG['JS_SIMULATOR_MIPS64']:
+            UNIFIED_SOURCES += [
+                'jit/mips64/Simulator-mips64.cpp'
+            ]
+
+if CONFIG['OS_ARCH'] == 'WINNT':
+    UNIFIED_SOURCES += [
+        'threading/windows/CpuCount.cpp',
+        'threading/windows/Thread.cpp',
+    ]
+else:
+    UNIFIED_SOURCES += [
+        'threading/posix/CpuCount.cpp',
+        'threading/posix/Thread.cpp',
+    ]
+
+if CONFIG['JS_HAS_CTYPES']:
+    SOURCES += [
+        'ctypes/CTypes.cpp',
+        'ctypes/Library.cpp',
+    ]
+    if not CONFIG['MOZ_SYSTEM_FFI']:
+        LOCAL_INCLUDES += [
+            '!ctypes/libffi/include',
+            'ctypes/libffi/src/%s' % CONFIG['FFI_TARGET_DIR'],
+        ]
+
+if CONFIG['MOZ_VTUNE']:
+    SOURCES += [
+        'vtune/ittnotify_static.c',
+        'vtune/jitprofiling.c',
+        'vtune/VTuneWrapper.cpp',
+    ]
+    if CONFIG['CC_TYPE'] != 'msvc':
+        SOURCES['vtune/ittnotify_static.c'].flags += ['-Wno-varargs', '-Wno-unknown-pragmas']
+
+if CONFIG['HAVE_LINUX_PERF_EVENT_H']:
+    SOURCES += [
+        'perf/pm_linux.cpp'
+    ]
+    if CONFIG['LINUX_HEADERS_INCLUDES']:
+        SOURCES['perf/pm_linux.cpp'].flags += [CONFIG['LINUX_HEADERS_INCLUDES']]
+else:
+    SOURCES += [
+        'perf/pm_stub.cpp'
+    ]
+
+GENERATED_FILES += ['frontend/ReservedWordsGenerated.h']
+ReservedWordsGenerated = GENERATED_FILES['frontend/ReservedWordsGenerated.h']
+ReservedWordsGenerated.script = 'frontend/GenerateReservedWords.py'
+ReservedWordsGenerated.inputs += [
+    'frontend/ReservedWords.h'
+]
+
+DIRS += [
+    'build',
+]
+
+FINAL_LIBRARY = 'js'
+
+if CONFIG['ENABLE_WASM_CRANELIFT']:
+    DIRS += ['rust']
+    UNIFIED_SOURCES += [
+        'wasm/WasmCraneliftCompile.cpp',
+    ]
+
+if CONFIG['JS_BUILD_BINAST']:
+    # Using SOURCES, as UNIFIED_SOURCES causes mysterious bugs on 32-bit platforms.
+    # These parts of BinAST are designed only to test evolutions of the
+    # specification.
+    SOURCES += ['frontend/BinTokenReaderTester.cpp']
+    # These parts of BinAST should eventually move to release.
+    SOURCES += [
+        'frontend/BinSource-auto.cpp',
+        'frontend/BinSource.cpp',
+        'frontend/BinSourceRuntimeSupport.cpp',
+        'frontend/BinToken.cpp',
+        'frontend/BinTokenReaderBase.cpp',
+        'frontend/BinTokenReaderMultipart.cpp',
+    ]
+
+    # Instrument BinAST files for fuzzing as we have a fuzzing target for BinAST.
+    if CONFIG['FUZZING_INTERFACES'] and CONFIG['LIBFUZZER']:
+        SOURCES['frontend/BinSource-auto.cpp'].flags += libfuzzer_flags
+        SOURCES['frontend/BinSource.cpp'].flags += libfuzzer_flags
+        SOURCES['frontend/BinToken.cpp'].flags += libfuzzer_flags
+        SOURCES['frontend/BinTokenReaderBase.cpp'].flags += libfuzzer_flags
+        SOURCES['frontend/BinTokenReaderMultipart.cpp'].flags += libfuzzer_flags
+
+# Prepare self-hosted JS code for embedding
+GENERATED_FILES += [('selfhosted.out.h', 'selfhosted.js')]
+selfhosted = GENERATED_FILES[('selfhosted.out.h', 'selfhosted.js')]
+selfhosted.script = 'builtin/embedjs.py:generate_selfhosted'
+selfhosted.inputs = [
+    'js.msg',
+    'builtin/TypedObjectConstants.h',
+    'builtin/SelfHostingDefines.h',
+    'builtin/Utilities.js',
+    'builtin/Array.js',
+    'builtin/AsyncIteration.js',
+    'builtin/Classes.js',
+    'builtin/Date.js',
+    'builtin/Error.js',
+    'builtin/Function.js',
+    'builtin/Generator.js',
+    'builtin/intl/Collator.js',
+    'builtin/intl/CommonFunctions.js',
+    'builtin/intl/CurrencyDataGenerated.js',
+    'builtin/intl/DateTimeFormat.js',
+    'builtin/intl/IntlObject.js',
+    'builtin/intl/LangTagMappingsGenerated.js',
+    'builtin/intl/NumberFormat.js',
+    'builtin/intl/PluralRules.js',
+    'builtin/intl/RelativeTimeFormat.js',
+    'builtin/Iterator.js',
+    'builtin/Map.js',
+    'builtin/Module.js',
+    'builtin/Number.js',
+    'builtin/Object.js',
+    'builtin/Promise.js',
+    'builtin/Reflect.js',
+    'builtin/RegExp.js',
+    'builtin/RegExpGlobalReplaceOpt.h.js',
+    'builtin/RegExpLocalReplaceOpt.h.js',
+    'builtin/String.js',
+    'builtin/Set.js',
+    'builtin/Sorting.js',
+    'builtin/TypedArray.js',
+    'builtin/TypedObject.js',
+    'builtin/WeakMap.js',
+    'builtin/WeakSet.js'
+]
+
+if CONFIG['JS_HAS_CTYPES']:
+    if CONFIG['MOZ_SYSTEM_FFI']:
+        CXXFLAGS += CONFIG['MOZ_FFI_CFLAGS']
+
+# Suppress warnings in third-party code.
+if CONFIG['CC_TYPE'] in ('clang', 'gcc'):
+    SOURCES['util/DoubleToString.cpp'].flags += ['-Wno-implicit-fallthrough']
+
+# Generate GC statistics phase data.
+GENERATED_FILES += ['gc/StatsPhasesGenerated.h']
+StatsPhasesGeneratedHeader = GENERATED_FILES['gc/StatsPhasesGenerated.h']
+StatsPhasesGeneratedHeader.script = 'gc/GenerateStatsPhases.py:generateHeader'
+GENERATED_FILES += ['gc/StatsPhasesGenerated.cpp']
+StatsPhasesGeneratedCpp = GENERATED_FILES['gc/StatsPhasesGenerated.cpp']
+StatsPhasesGeneratedCpp.script = 'gc/GenerateStatsPhases.py:generateCpp'
