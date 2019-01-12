@@ -345,7 +345,7 @@ def main():
         'bring_your_own_payload.js'
     ])
 
-    print '[*] Outputing byop.js..'
+    print '[*] Outputting byop.js..'
     with open(r'..\exploits\byop.js', 'w') as f:
         f.write(byop.replace('\r\n', '\n'))
 
