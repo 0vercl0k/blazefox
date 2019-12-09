@@ -13,7 +13,7 @@ This the repository associated with the article [Introduction to SpiderMonkey ex
 * Three exploits are documented and available in [exploits](https://github.com/0vercl0k/blazefox/tree/master/exploits),
 * A *WindDbg* JavaScript extension that allows to dump `js::Value` and `JSObject` objects in [sm](https://github.com/0vercl0k/blazefox/tree/master/sm),
 * Various scripts built during the research in [scripts](https://github.com/0vercl0k/blazefox/tree/master/scripts),
-* An x64 debug build of the JavaScript shell (along private symbol information) in [js-asserts](https://github.com/0vercl0k/blazefox/tree/master/js-asserts), and an x64 release build in [js-release](https://github.com/0vercl0k/blazefox/tree/master/js-release),
-* The sources matching [js-release](https://github.com/0vercl0k/blazefox/tree/master/js-release) private symbol information in [src/js](https://github.com/0vercl0k/blazefox/tree/master/src/js),
-* Last but not least, 7z archives of the Firefox binaries (along with `xul.dll` private symbol information) I compiled for Windows 64-bit in [ff-bin.7z.001](https://github.com/0vercl0k/blazefox/blob/master/ff-bin.7z.001) and [ff-bin.7z.002](https://github.com/0vercl0k/blazefox/blob/master/ff-bin.7z.002).
+* An x64 debug build of the JavaScript shell (along private symbol information) in [js-asserts](https://github.com/0vercl0k/blazefox/releases/download/1/js-asserts.7z), and an x64 release build in [js-release](https://github.com/0vercl0k/blazefox/releases/download/1/js-release.7z),
+* The sources matching [js-release](https://github.com/0vercl0k/blazefox/releases/download/1/js-release.7z) private symbol information in [src/js](https://github.com/0vercl0k/blazefox/tree/master/src/js),
+* Last but not least, 7z archives of the Firefox binaries (along with `xul.dll` private symbol information) I compiled for Windows 64-bit in [ff-bin.7z](https://github.com/0vercl0k/blazefox/releases/download/1/ff-bin.7z).
 
